@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -30,7 +29,13 @@ var pillarName string
 var secretsFilePath string
 var gpgKeyName string
 var secretName string
+var publicKeyRing string
+var secureKeyRing string
 var randSrc = rand.NewSource(time.Now().UnixNano())
+
+var usr, _ = user.Current()
+var defaultPubRing = filepath.Join(usr.HomeDir, ".gnupg/pubring.gpg")
+var defaultSecRing = filepath.Join(usr.HomeDir, ".gnupg/secring.gpg")
 
 const defaultOrg = "Everbridge"
 const defaultPillar = "atlas-salt-pillar"
@@ -52,6 +57,18 @@ func main() {
 			Usage:       "github API token",
 			Destination: &githubToken,
 			EnvVar:      "GITHUB_TOKEN",
+		},
+		cli.StringFlag{
+			Name:        "pubring, pub",
+			Value:       defaultPubRing,
+			Usage:       "GNUPG public keyring",
+			Destination: &publicKeyRing,
+		},
+		cli.StringFlag{
+			Name:        "secring, sec",
+			Value:       defaultSecRing,
+			Usage:       "private keyring",
+			Destination: &secureKeyRing,
 		},
 		cli.StringFlag{
 			Name:        "github_org, o",
@@ -113,6 +130,8 @@ func main() {
 	// 	os.Exit(1)
 	// }
 
+	// defer os.Remove(checkoutPath)
+
 	app.Run(os.Args)
 }
 
@@ -135,14 +154,11 @@ func getKeyByID(keyring openpgp.EntityList, id string) *openpgp.Entity {
 }
 
 func signSecret() (signedText []byte) {
-	usr, _ := user.Current()
-	homeDir := usr.HomeDir
-
 	content, err := ioutil.ReadFile(secretsFilePath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	pubringFile, err := os.Open(filepath.Join(homeDir, ".gnupg/pubring.gpg"))
+	pubringFile, err := os.Open(publicKeyRing)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -150,7 +166,7 @@ func signSecret() (signedText []byte) {
 	if err != nil {
 		log.Fatal("cannot read public keys: ", err)
 	}
-	privringFile, err := os.Open(filepath.Join(homeDir, ".gnupg/secring.gpg"))
+	privringFile, err := os.Open(secureKeyRing)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -236,7 +252,7 @@ func parseTemplate() (pillarData string) {
 	return ""
 }
 
-func checkoutPillar(repoName string) (path string, err error) {
+func checkoutPillar() (path string, err error) {
 	ctx := context.Background()
 
 	ts := oauth2.StaticTokenSource(
@@ -246,27 +262,23 @@ func checkoutPillar(repoName string) (path string, err error) {
 
 	client := github.NewClient(tc)
 
-	repo, resp, err := client.Repositories.Get(ctx, githubOrg, repoName)
+	repo, resp, err := client.Repositories.Get(ctx, githubOrg, githubRepo)
 	fmt.Println("resp: ", resp)
 	if err != nil {
-		fmt.Println("Unable to get repo: ", err.Error())
+		log.Fatal(fmt.Sprintf("Unable to get repo: %s", err.Error()))
 		return "", err
 	}
 
-	prettyJSON, _ := json.MarshalIndent(repo, "", "    ")
-	fmt.Printf("repo: %s\n", prettyJSON)
+	// XXX - caller needs to clean up this dir
+	tmpDir, _ := ioutil.TempDir("", "")
 
-	cwd, _ := os.Getwd()
-	os.Chdir("/tmp")
-	cmd := exec.Command("git", "clone", repo.GetSSHURL(), fmt.Sprintf("./%s", repoName))
+	cmd := exec.Command("git", "clone", repo.GetSSHURL(), fmt.Sprintf("%s/%s", tmpDir, githubRepo))
 	err = cmd.Run()
 	if err != nil {
-		fmt.Println("Unable to clone pillar: ", err.Error())
+		log.Fatal(fmt.Sprintf("Unable to clone pillar: %s", err.Error()))
+		defer os.Remove(tmpDir)
 		return "", err
 	}
 
-	os.Chdir(cwd)
-
-	return fmt.Sprintf("/tmp/%s", repoName), err
-
+	return fmt.Sprintf("%s/%s", tmpDir, githubRepo), err
 }
