@@ -105,32 +105,30 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		sec := parseTemplate()
-		fmt.Println(sec)
+		sls := parseTemplate()
+		fmt.Println(sls)
 
+		// checkout pillar repo
+		// checkoutPath, err := checkoutPillar("githubRepo")
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+
+		// // TODO: check for existing pillar file
+		// exists := checkForPillarFile(checkoutPath)
+
+		// // TODO: parse template
+
+		// // TODO: check in or update new file
+		// err = updatePillar("", exists)
+		// if err != nil {
+		// 	fmt.Println("Unable to update pillar: ", err.Error())
+		// 	os.Exit(1)
+		// }
+
+		// defer os.Remove(checkoutPath)
 		return nil
 	}
-
-	// checkout pillar repo
-	// checkoutPath, err := checkoutPillar("atlas-salt-pillar")
-	// if err != nil {
-	// 	fmt.Println("Checkout error: ", err.Error())
-	// 	os.Exit(1)
-	// }
-
-	// // TODO: check for existing pillar file
-	// exists := checkForPillarFile(checkoutPath, "")
-
-	// // TODO: parse template
-
-	// // TODO: check in or update new file
-	// err = updatePillar("", exists)
-	// if err != nil {
-	// 	fmt.Println("Unable to update pillar: ", err.Error())
-	// 	os.Exit(1)
-	// }
-
-	// defer os.Remove(checkoutPath)
 
 	app.Run(os.Args)
 }
@@ -202,7 +200,7 @@ func signSecret() (signedText []byte) {
 }
 
 func updatePillar(filePath string, exists bool) (err error) {
-	tmpfile, err := ioutil.TempFile("", "example")
+	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -219,12 +217,14 @@ func updatePillar(filePath string, exists bool) (err error) {
 	return nil
 }
 
-func checkForPillarFile(checkoutPath string, pillarName string) (exists bool) {
+func checkForPillarFile(checkoutPath string) (exists bool) {
 	// TODO: fix me
 	return false
 }
 
 func parseTemplate() (pillarData string) {
+	var formatted string
+	var content []byte
 	signedText := signSecret()
 
 	const pillarTemplate = `#!yaml|gpg
@@ -232,7 +232,7 @@ func parseTemplate() (pillarData string) {
 {{.SecretName}}: |
 {{.SecureText}}
 `
-	var formatted string
+
 	scanner := bufio.NewScanner(strings.NewReader(string(signedText)))
 	for scanner.Scan() {
 		formatted = fmt.Sprintf("%s    %s\n", formatted, scanner.Text())
@@ -243,13 +243,24 @@ func parseTemplate() (pillarData string) {
 	}
 	pillar := Pillar{secretName, formatted}
 
-	t := template.Must(template.New("pillar").Parse(pillarTemplate))
-	err := t.Execute(os.Stdout, pillar)
+	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
-		log.Println("executing template:", err)
+		log.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	t := template.Must(template.New("pillar").Parse(pillarTemplate))
+	err = t.Execute(tmpfile, pillar)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	return ""
+	content, err = ioutil.ReadFile(tmpfile.Name())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return string(content)
 }
 
 func checkoutPillar() (path string, err error) {
