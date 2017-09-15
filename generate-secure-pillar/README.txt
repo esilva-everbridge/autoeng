@@ -15,6 +15,8 @@ COMMANDS:
 
 GLOBAL OPTIONS:
    --token value, -t value         github API token [$GITHUB_TOKEN]
+   --pubring value, --pub value    GNUPG public keyring (default: "/Users/ed.silva/.gnupg/pubring.gpg")
+   --secring value, --sec value    private keyring (default: "/Users/ed.silva/.gnupg/secring.gpg")
    --github_org value, -o value    github organization (default: "Everbridge")
    --pillar_name value, -p value   secure pillar name (default: "atlas-salt-pillar")
    --secret_name value, -s value   secret name
