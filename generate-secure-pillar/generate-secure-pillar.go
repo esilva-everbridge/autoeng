@@ -106,9 +106,19 @@ func main() {
 
 	app.Action = func(c *cli.Context) error {
 		sls := parseTemplate()
-		fmt.Println(sls)
+		// fmt.Println(sls)
 
-		// checkout pillar repo
+		// just write file with a matching name as the input with a .sls ext
+		var extension = filepath.Ext(secretsFilePath)
+		var name = secretsFilePath[0 : len(secretsFilePath)-len(extension)]
+		var slsFile = fmt.Sprintf("%s.sls", name)
+		err := ioutil.WriteFile(slsFile, []byte(sls), 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("Wrote out new file: '%s'\n", slsFile)
+
+		// TODO: checkout pillar repo
 		// checkoutPath, err := checkoutPillar("githubRepo")
 		// if err != nil {
 		// 	log.Fatal(err)
@@ -116,8 +126,6 @@ func main() {
 
 		// // TODO: check for existing pillar file
 		// exists := checkForPillarFile(checkoutPath)
-
-		// // TODO: parse template
 
 		// // TODO: check in or update new file
 		// err = updatePillar("", exists)
