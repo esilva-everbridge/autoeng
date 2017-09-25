@@ -121,7 +121,7 @@ func main() {
 		// TODO: checkout pillar repo
 		// checkoutPath, err := checkoutPillar("githubRepo")
 		// if err != nil {
-		// 	log.Fatal(err)
+		//  log.Fatal(err)
 		// }
 
 		// // TODO: check for existing pillar file
@@ -130,8 +130,8 @@ func main() {
 		// // TODO: check in or update new file
 		// err = updatePillar("", exists)
 		// if err != nil {
-		// 	fmt.Println("Unable to update pillar: ", err.Error())
-		// 	os.Exit(1)
+		//  fmt.Println("Unable to update pillar: ", err.Error())
+		//  os.Exit(1)
 		// }
 
 		// defer os.Remove(checkoutPath)
@@ -184,8 +184,6 @@ func signSecret() (signedText []byte) {
 	privateKey := getKeyByID(privring, gpgKeyName)
 	publicKey := getKeyByID(pubring, gpgKeyName)
 
-	// newFileName := fmt.Sprintf("%s.asc", secretsFilePath)
-
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
 		log.Fatal(err)
@@ -216,7 +214,7 @@ func updatePillar(filePath string, exists bool) (err error) {
 
 	// TODO: stuff goes here
 	// if _, err := tmpfile.Write(content); err != nil {
-	// 	log.Fatal(err)
+	//  log.Fatal(err)
 	// }
 	if err := tmpfile.Close(); err != nil {
 		log.Fatal(err)
