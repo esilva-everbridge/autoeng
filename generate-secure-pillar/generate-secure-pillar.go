@@ -67,7 +67,7 @@ func main() {
 		cli.StringFlag{
 			Name:        "secring, sec",
 			Value:       defaultSecRing,
-			Usage:       "private keyring",
+			Usage:       "GNUPG private keyring",
 			Destination: &secureKeyRing,
 		},
 		cli.StringFlag{
