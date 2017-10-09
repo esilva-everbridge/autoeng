@@ -125,7 +125,7 @@ func main() {
 		// }
 
 		// // TODO: check for existing pillar file
-		// exists := checkForPillarFile(checkoutPath)
+		// exists := pillarFileExists(checkoutPath)
 
 		// // TODO: check in or update new file
 		// err = updatePillar("", exists)
@@ -223,7 +223,7 @@ func updatePillar(filePath string, exists bool) (err error) {
 	return nil
 }
 
-func checkForPillarFile(checkoutPath string) (exists bool) {
+func pillarFileExists(checkoutPath string) (exists bool) {
 	// TODO: fix me
 	return false
 }
