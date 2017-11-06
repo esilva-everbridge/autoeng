@@ -2,31 +2,28 @@ package main
 
 import (
 	"bufio"
-	"context"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
-	"strings"
-	"text/template"
 	"time"
 
-	"github.com/google/go-github/github"
 	"github.com/urfave/cli"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
-	"golang.org/x/oauth2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var githubToken string
 var githubOrg string
-var githubRepo string
-var pillarName string
+var update bool
 var secretsFilePath string
+var secretsString string
+var outputFilePath string
 var gpgKeyName string
 var secretName string
 var publicKeyRing string
@@ -39,6 +36,11 @@ var defaultSecRing = filepath.Join(usr.HomeDir, ".gnupg/secring.gpg")
 
 const defaultOrg = "Everbridge"
 const defaultPillar = "atlas-salt-pillar"
+
+// SecurePillar secure pillar vars
+type SecurePillar struct {
+	Secure_Vars map[string]string
+}
 
 func main() {
 	app := cli.NewApp()
@@ -77,25 +79,31 @@ func main() {
 			Destination: &githubOrg,
 		},
 		cli.StringFlag{
-			Name:        "pillar_name, p",
-			Value:       defaultPillar,
-			Usage:       "secure pillar name",
-			Destination: &pillarName,
-		},
-		cli.StringFlag{
 			Name:        "secret_name, s",
 			Usage:       "secret name",
 			Destination: &secretName,
 		},
-		cli.StringFlag{
-			Name:        "github_repo, r",
-			Usage:       "github repo name",
-			Destination: &githubRepo,
-		},
+		// accepts STDIN as a source using the standard unix '-' command line syntax:
+		// cat foo | ./generate-secure-pillar -f -
 		cli.StringFlag{
 			Name:        "secrets_file, f",
-			Usage:       "path to a yaml file to be encrypted",
+			Usage:       "path to a file to be encrypted (a file name of '-' will read from STDIN)",
 			Destination: &secretsFilePath,
+		},
+		cli.StringFlag{
+			Name:        "output_file",
+			Usage:       "path to a file to be written (defaults to STDOUT)",
+			Destination: &outputFilePath,
+		},
+		cli.BoolFlag{
+			Name:        "update, u",
+			Usage:       "update the output file only (can't be stdout, will not overwrite existing files)",
+			Destination: &update,
+		},
+		cli.StringFlag{
+			Name:        "secret",
+			Usage:       "secret string to be encrypted",
+			Destination: &secretsString,
 		},
 		cli.StringFlag{
 			Name:        "gpg_key, k",
@@ -105,18 +113,25 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		sls := parseTemplate()
-		// fmt.Println(sls)
+		outfile := secretsFilePath
+		stdOut := false
 
-		// just write file with a matching name as the input with a .sls ext
-		var extension = filepath.Ext(secretsFilePath)
-		var name = secretsFilePath[0 : len(secretsFilePath)-len(extension)]
-		var slsFile = fmt.Sprintf("%s.sls", name)
-		err := ioutil.WriteFile(slsFile, []byte(sls), 0644)
+		if secretsFilePath == "-" {
+			secretsFilePath = os.Stdin.Name()
+			stdOut = true
+			outfile = os.Stdout.Name()
+		}
+		secretsFilePath, _ := filepath.Abs(secretsFilePath)
+
+		sls := pillarBuffer()
+
+		err := ioutil.WriteFile(outfile, sls.Bytes(), 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Wrote out new file: '%s'\n", slsFile)
+		if !stdOut {
+			fmt.Printf("Wrote out to file: '%s'\n", secretsFilePath)
+		}
 
 		// TODO: checkout pillar repo
 		// checkoutPath, err := checkoutPillar("githubRepo")
@@ -159,11 +174,30 @@ func getKeyByID(keyring openpgp.EntityList, id string) *openpgp.Entity {
 	return nil
 }
 
-func signSecret() (signedText []byte) {
-	content, err := ioutil.ReadFile(secretsFilePath)
-	if err != nil {
-		log.Fatal(err)
+func readSlsFile(slsPath string) SecurePillar {
+	var securePillar SecurePillar
+
+	if secretsFilePath != os.Stdin.Name() {
+		filename, _ := filepath.Abs(slsPath)
+		if _, err := os.Stat(filename); !os.IsNotExist(err) {
+			yamlData, err := ioutil.ReadFile(filename)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = yaml.Unmarshal(yamlData, &securePillar)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	} else {
+		securePillar.Secure_Vars = make(map[string]string)
 	}
+
+	return securePillar
+}
+
+func signSecret() (signedText string) {
 	pubringFile, err := os.Open(publicKeyRing)
 	if err != nil {
 		log.Fatal(err)
@@ -184,118 +218,68 @@ func signSecret() (signedText []byte) {
 	privateKey := getKeyByID(privring, gpgKeyName)
 	publicKey := getKeyByID(pubring, gpgKeyName)
 
-	tmpfile, err := ioutil.TempFile("", "")
+	var tmpfile bytes.Buffer
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer os.Remove(tmpfile.Name())
 
-	hints := openpgp.FileHints{IsBinary: false, FileName: tmpfile.Name(), ModTime: time.Time{}}
-	w, _ := armor.Encode(tmpfile, "PGP MESSAGE", nil)
+	hints := openpgp.FileHints{IsBinary: false, ModTime: time.Time{}}
+	writer := bufio.NewWriter(&tmpfile)
+	w, _ := armor.Encode(writer, "PGP MESSAGE", nil)
 	plaintext, _ := openpgp.Encrypt(w, []*openpgp.Entity{publicKey}, privateKey, &hints, nil)
-	fmt.Fprintf(plaintext, string(content))
+	fmt.Fprintf(plaintext, string(secretsString))
 	plaintext.Close()
 	w.Close()
+	writer.Flush()
 
-	content, err = ioutil.ReadFile(tmpfile.Name())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return content
+	return tmpfile.String()
 }
 
-func updatePillar(filePath string, exists bool) (err error) {
-	tmpfile, err := ioutil.TempFile("", "")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer os.Remove(tmpfile.Name()) // clean up
-
-	// TODO: stuff goes here
-	// if _, err := tmpfile.Write(content); err != nil {
-	//  log.Fatal(err)
-	// }
-	if err := tmpfile.Close(); err != nil {
-		log.Fatal(err)
-	}
-
-	return nil
-}
-
-func pillarFileExists(checkoutPath string) (exists bool) {
-	// TODO: fix me
-	return false
-}
-
-func parseTemplate() (pillarData string) {
-	var formatted string
-	var content []byte
+func pillarBuffer() (pillarData bytes.Buffer) {
 	signedText := signSecret()
 
-	const pillarTemplate = `#!yaml|gpg
+	securePillar := readSlsFile(secretsFilePath)
+	securePillar.Secure_Vars[secretName] = signedText
 
-{{.SecretName}}: |
-{{.SecureText}}
-`
-
-	scanner := bufio.NewScanner(strings.NewReader(string(signedText)))
-	for scanner.Scan() {
-		formatted = fmt.Sprintf("%s    %s\n", formatted, scanner.Text())
-	}
-
-	type Pillar struct {
-		SecretName, SecureText string
-	}
-	pillar := Pillar{secretName, formatted}
-
-	tmpfile, err := ioutil.TempFile("", "")
+	yamlBytes, err := yaml.Marshal(securePillar)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer os.Remove(tmpfile.Name())
+	var buffer bytes.Buffer
+	buffer.WriteString("#!yaml|gpg\n\n")
+	buffer.WriteString(string(yamlBytes))
+	// buffer.WriteTo(os.Stdout)
 
-	t := template.Must(template.New("pillar").Parse(pillarTemplate))
-	err = t.Execute(tmpfile, pillar)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	content, err = ioutil.ReadFile(tmpfile.Name())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return string(content)
+	return buffer
 }
 
-func checkoutPillar() (path string, err error) {
-	ctx := context.Background()
+// func checkoutPillar() (path string, err error) {
+// 	ctx := context.Background()
 
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: githubToken},
-	)
-	tc := oauth2.NewClient(ctx, ts)
+// 	ts := oauth2.StaticTokenSource(
+// 		&oauth2.Token{AccessToken: githubToken},
+// 	)
+// 	tc := oauth2.NewClient(ctx, ts)
 
-	client := github.NewClient(tc)
+// 	client := github.NewClient(tc)
 
-	repo, resp, err := client.Repositories.Get(ctx, githubOrg, githubRepo)
-	fmt.Println("resp: ", resp)
-	if err != nil {
-		log.Fatal(fmt.Sprintf("Unable to get repo: %s", err.Error()))
-		return "", err
-	}
+// 	repo, resp, err := client.Repositories.Get(ctx, githubOrg, githubRepo)
+// 	fmt.Println("resp: ", resp)
+// 	if err != nil {
+// 		log.Fatal(fmt.Sprintf("Unable to get repo: %s", err.Error()))
+// 		return "", err
+// 	}
 
-	// XXX - caller needs to clean up this dir
-	tmpDir, _ := ioutil.TempDir("", "")
+// 	// XXX - caller needs to clean up this dir
+// 	tmpDir, _ := ioutil.TempDir("", "")
 
-	cmd := exec.Command("git", "clone", repo.GetSSHURL(), fmt.Sprintf("%s/%s", tmpDir, githubRepo))
-	err = cmd.Run()
-	if err != nil {
-		log.Fatal(fmt.Sprintf("Unable to clone pillar: %s", err.Error()))
-		defer os.Remove(tmpDir)
-		return "", err
-	}
+// 	cmd := exec.Command("git", "clone", repo.GetSSHURL(), fmt.Sprintf("%s/%s", tmpDir, githubRepo))
+// 	err = cmd.Run()
+// 	if err != nil {
+// 		log.Fatal(fmt.Sprintf("Unable to clone pillar: %s", err.Error()))
+// 		defer os.Remove(tmpDir)
+// 		return "", err
+// 	}
 
-	return fmt.Sprintf("%s/%s", tmpDir, githubRepo), err
-}
+// 	return fmt.Sprintf("%s/%s", tmpDir, githubRepo), err
+// }
