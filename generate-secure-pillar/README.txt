@@ -29,6 +29,8 @@ EXAMPLES:
     $ ./generate-secure-pillar -k "Salt Master" -n secret_name -s secret_value -o new.sls
     # add to the new file
     $ ./generate-secure-pillar -k "Salt Master" -n secret_name2 -s secret_value2 -f new.sls -o new.sls
+    # update an existing value
+    $ ./generate-secure-pillar -k "Salt Master" -n secret_name2 -s secret_value3 -f new.sls -o new.sls
 
 COPYRIGHT:
    (c) 2017 Everbridge, Inc.
