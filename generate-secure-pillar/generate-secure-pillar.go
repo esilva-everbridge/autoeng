@@ -20,10 +20,9 @@ import (
 
 var githubToken string
 var githubOrg string
-var update bool
 var secretsFilePath string
 var secretsString string
-var outputFilePath string
+var outputFilePath string = os.Stdout.Name()
 var gpgKeyName string
 var secretName string
 var publicKeyRing string
@@ -43,6 +42,8 @@ type SecurePillar struct {
 }
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	app := cli.NewApp()
 	app.Version = "0.1"
 	app.Authors = []cli.Author{
@@ -54,12 +55,12 @@ func main() {
 	app.Copyright = "(c) 2017 Everbridge, Inc."
 	app.Usage = "add or update secure salt pillar content"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:        "token, t",
-			Usage:       "github API token",
-			Destination: &githubToken,
-			EnvVar:      "GITHUB_TOKEN",
-		},
+		// cli.StringFlag{
+		// 	Name:        "token, t",
+		// 	Usage:       "github API token",
+		// 	Destination: &githubToken,
+		// 	EnvVar:      "GITHUB_TOKEN",
+		// },
 		cli.StringFlag{
 			Name:        "pubring, pub",
 			Value:       defaultPubRing,
@@ -72,65 +73,63 @@ func main() {
 			Usage:       "GNUPG private keyring",
 			Destination: &secureKeyRing,
 		},
+		// cli.StringFlag{
+		// 	Name:        "github_org, o",
+		// 	Value:       defaultOrg,
+		// 	Usage:       "github organization",
+		// 	Destination: &githubOrg,
+		// },
 		cli.StringFlag{
-			Name:        "github_org, o",
-			Value:       defaultOrg,
-			Usage:       "github organization",
-			Destination: &githubOrg,
-		},
-		cli.StringFlag{
-			Name:        "secret_name, s",
-			Usage:       "secret name",
+			Name:        "secure_name, n",
+			Usage:       "secure variable name",
 			Destination: &secretName,
 		},
 		// accepts STDIN as a source using the standard unix '-' command line syntax:
 		// cat foo | ./generate-secure-pillar -f -
 		cli.StringFlag{
 			Name:        "secrets_file, f",
+			Value:		 os.Stdin.Name(),
 			Usage:       "path to a file to be encrypted (a file name of '-' will read from STDIN)",
 			Destination: &secretsFilePath,
 		},
 		cli.StringFlag{
-			Name:        "output_file",
+			Name:        "output_file, o",
+			Value:		 os.Stdout.Name(),
 			Usage:       "path to a file to be written (defaults to STDOUT)",
 			Destination: &outputFilePath,
 		},
-		cli.BoolFlag{
-			Name:        "update, u",
-			Usage:       "update the output file only (can't be stdout, will not overwrite existing files)",
-			Destination: &update,
-		},
 		cli.StringFlag{
-			Name:        "secret",
-			Usage:       "secret string to be encrypted",
+			Name:        "secret, s",
+			Usage:       "secret string value to be encrypted",
 			Destination: &secretsString,
 		},
 		cli.StringFlag{
 			Name:        "gpg_key, k",
-			Usage:       "GPG key name to use for encryption",
+			Usage:       "GPG key name, email, or ID to use for encryption",
 			Destination: &gpgKeyName,
 		},
 	}
 
 	app.Action = func(c *cli.Context) error {
-		outfile := secretsFilePath
-		stdOut := false
+		stdOut := true
+		outputFilePath, _ = filepath.Abs(outputFilePath)
 
+		if outputFilePath != os.Stdout.Name() {
+			stdOut = true
+		}
 		if secretsFilePath == "-" {
 			secretsFilePath = os.Stdin.Name()
-			stdOut = true
-			outfile = os.Stdout.Name()
 		}
-		secretsFilePath, _ := filepath.Abs(secretsFilePath)
+		secretsFilePath, _ = filepath.Abs(secretsFilePath)
 
 		sls := pillarBuffer()
 
-		err := ioutil.WriteFile(outfile, sls.Bytes(), 0644)
+		err := ioutil.WriteFile(outputFilePath, sls.Bytes(), 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
 		if !stdOut {
-			fmt.Printf("Wrote out to file: '%s'\n", secretsFilePath)
+			fmt.Printf("Wrote out to file: '%s'\n", outputFilePath)
 		}
 
 		// TODO: checkout pillar repo
