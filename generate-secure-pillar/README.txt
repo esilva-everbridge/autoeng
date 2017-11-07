@@ -30,9 +30,9 @@ GLOBAL OPTIONS:
 
 EXAMPLES:
     # create a new sls file
-    $ echo bar | ./generate-secure-pillar -k "Salt Master" -s foo -f - > new.sls
+    $ ./generate-secure-pillar -k "Salt Master" -s foo --secret bar -f - > new.sls
     # add to the new file
-    ./generate-secure-pillar -k "Salt Master" -s baz --secret qux -f new.sls
+    ./generate-secure-pillar -k "Salt Master" -s bar --secret baz -f new.sls
 
 COPYRIGHT:
    (c) 2017 Everbridge, Inc.

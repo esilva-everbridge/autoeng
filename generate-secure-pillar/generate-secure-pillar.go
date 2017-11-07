@@ -206,16 +206,6 @@ func signSecret() (signedText string) {
 	if err != nil {
 		log.Fatal("cannot read public keys: ", err)
 	}
-	privringFile, err := os.Open(secureKeyRing)
-	if err != nil {
-		log.Fatal(err)
-	}
-	privring, err := openpgp.ReadKeyRing(privringFile)
-	if err != nil {
-		log.Fatal("cannot read private keys: ", err)
-	}
-
-	privateKey := getKeyByID(privring, gpgKeyName)
 	publicKey := getKeyByID(pubring, gpgKeyName)
 
 	var tmpfile bytes.Buffer
@@ -226,7 +216,7 @@ func signSecret() (signedText string) {
 	hints := openpgp.FileHints{IsBinary: false, ModTime: time.Time{}}
 	writer := bufio.NewWriter(&tmpfile)
 	w, _ := armor.Encode(writer, "PGP MESSAGE", nil)
-	plaintext, _ := openpgp.Encrypt(w, []*openpgp.Entity{publicKey}, privateKey, &hints, nil)
+	plaintext, _ := openpgp.Encrypt(w, []*openpgp.Entity{publicKey}, nil, &hints, nil)
 	fmt.Fprintf(plaintext, string(secretsString))
 	plaintext.Close()
 	w.Close()
