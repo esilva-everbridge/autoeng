@@ -14,8 +14,8 @@ COMMANDS:
      help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --pubring value, --pub value    GNUPG public keyring (default: "/Users/ed.silva/.gnupg/pubring.gpg")
-   --secring value, --sec value    GNUPG private keyring (default: "/Users/ed.silva/.gnupg/secring.gpg")
+   --pubring value, --pub value    GNUPG public keyring (default: "~/.gnupg/pubring.gpg")
+   --secring value, --sec value    GNUPG private keyring (default: "~/.gnupg/secring.gpg")
    --secure_name value, -n value   secure variable name
    --secrets_file value, -f value  path to a file to be encrypted (a file name of '-' will read from STDIN) (default: "/dev/stdin")
    --output_file value, -o value   path to a file to be written (defaults to STDOUT) (default: "/dev/stdout")
