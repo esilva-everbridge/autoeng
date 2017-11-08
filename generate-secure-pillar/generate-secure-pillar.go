@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/urfave/cli"
@@ -27,6 +28,7 @@ var gpgKeyName string
 var secretName string
 var publicKeyRing string
 var secureKeyRing string
+var encryptAll bool
 var randSrc = rand.NewSource(time.Now().UnixNano())
 
 var usr, _ = user.Current()
@@ -35,6 +37,7 @@ var defaultSecRing = filepath.Join(usr.HomeDir, ".gnupg/secring.gpg")
 
 const defaultOrg = "Everbridge"
 const defaultPillar = "atlas-salt-pillar"
+const pgpHeader = "-----BEGIN PGP MESSAGE-----"
 
 // SecurePillar secure pillar vars
 type SecurePillar struct {
@@ -74,7 +77,7 @@ func main() {
 			Destination: &secureKeyRing,
 		},
 		// cli.StringFlag{
-		// 	Name:        "github_org, o",
+		// 	Name:        "github_org, org",
 		// 	Value:       defaultOrg,
 		// 	Usage:       "github organization",
 		// 	Destination: &githubOrg,
@@ -88,13 +91,13 @@ func main() {
 		// cat foo | ./generate-secure-pillar -f -
 		cli.StringFlag{
 			Name:        "secrets_file, f",
-			Value:		 os.Stdin.Name(),
+			Value:       os.Stdin.Name(),
 			Usage:       "path to a file to be encrypted (a file name of '-' will read from STDIN)",
 			Destination: &secretsFilePath,
 		},
 		cli.StringFlag{
 			Name:        "output_file, o",
-			Value:		 os.Stdout.Name(),
+			Value:       os.Stdout.Name(),
 			Usage:       "path to a file to be written (defaults to STDOUT)",
 			Destination: &outputFilePath,
 		},
@@ -107,6 +110,11 @@ func main() {
 			Name:        "gpg_key, k",
 			Usage:       "GPG key name, email, or ID to use for encryption",
 			Destination: &gpgKeyName,
+		},
+		cli.BoolFlag{
+			Name:        "encrypt_all, a",
+			Usage:       "encrypt all non-encrypted values in a file",
+			Destination: &encryptAll,
 		},
 	}
 
@@ -196,7 +204,7 @@ func readSlsFile(slsPath string) SecurePillar {
 	return securePillar
 }
 
-func signSecret() (signedText string) {
+func signSecret(plainText string) (signedText string) {
 	pubringFile, err := os.Open(publicKeyRing)
 	if err != nil {
 		log.Fatal(err)
@@ -216,7 +224,7 @@ func signSecret() (signedText string) {
 	writer := bufio.NewWriter(&tmpfile)
 	w, _ := armor.Encode(writer, "PGP MESSAGE", nil)
 	plaintext, _ := openpgp.Encrypt(w, []*openpgp.Entity{publicKey}, nil, &hints, nil)
-	fmt.Fprintf(plaintext, string(secretsString))
+	fmt.Fprintf(plaintext, string(plainText))
 	plaintext.Close()
 	w.Close()
 	writer.Flush()
@@ -225,10 +233,22 @@ func signSecret() (signedText string) {
 }
 
 func pillarBuffer() (pillarData bytes.Buffer) {
-	signedText := signSecret()
-
 	securePillar := readSlsFile(secretsFilePath)
-	securePillar.Secure_Vars[secretName] = signedText
+	var signedText string
+	plainText := secretsString
+
+	if encryptAll == true && secretsFilePath != os.Stdin.Name() {
+		for k, v := range securePillar.Secure_Vars {
+			if strings.Contains(v, pgpHeader) == false {
+				fmt.Printf("key[%s] value[%s]\n", k, v)
+				signedText = signSecret(v)
+				securePillar.Secure_Vars[k] = signedText
+			}
+		}
+	} else {
+		signedText = signSecret(plainText)
+		securePillar.Secure_Vars[secretName] = signedText
+	}
 
 	yamlBytes, err := yaml.Marshal(securePillar)
 	if err != nil {
