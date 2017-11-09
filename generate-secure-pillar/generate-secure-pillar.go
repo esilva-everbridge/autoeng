@@ -29,6 +29,7 @@ var secretName string
 var publicKeyRing string
 var secureKeyRing string
 var encryptAll bool
+var decryptAll bool
 var randSrc = rand.NewSource(time.Now().UnixNano())
 
 var usr, _ = user.Current()
@@ -115,6 +116,11 @@ func main() {
 			Name:        "encrypt_all, a",
 			Usage:       "encrypt all non-encrypted values in a file",
 			Destination: &encryptAll,
+		},
+		cli.BoolFlag{
+			Name:        "decrypt_all, a",
+			Usage:       "decrypt all encrypted values in a file",
+			Destination: &decryptAll,
 		},
 	}
 
@@ -204,7 +210,7 @@ func readSlsFile(slsPath string) SecurePillar {
 	return securePillar
 }
 
-func signSecret(plainText string) (signedText string) {
+func encryptSecret(plainText string) (signedText string) {
 	pubringFile, err := os.Open(publicKeyRing)
 	if err != nil {
 		log.Fatal(err)
@@ -232,6 +238,34 @@ func signSecret(plainText string) (signedText string) {
 	return tmpfile.String()
 }
 
+func decryptSecret(cipherText string) (plainText string) {
+	secringFile, err := os.Open(privateKeyRing)
+	if err != nil {
+		log.Fatal(err)
+	}
+	secring, err := openpgp.ReadKeyRing(secringFile)
+	if err != nil {
+		log.Fatal("cannot read secret keys: ", err)
+	}
+	secretKey := getKeyByID(secring, gpgKeyName)
+
+	var tmpfile bytes.Buffer
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// hints := openpgp.FileHints{IsBinary: false, ModTime: time.Time{}}
+	// writer := bufio.NewWriter(&tmpfile)
+	// w, _ := armor.Encode(writer, "PGP MESSAGE", nil)
+	// plaintext, _ := openpgp.Encrypt(w, []*openpgp.Entity{publicKey}, nil, &hints, nil)
+	// fmt.Fprintf(plaintext, string(plainText))
+	// plaintext.Close()
+	// w.Close()
+	// writer.Flush()
+
+	return tmpfile.String()
+}
+
 func pillarBuffer() (pillarData bytes.Buffer) {
 	securePillar := readSlsFile(secretsFilePath)
 	var signedText string
@@ -241,12 +275,20 @@ func pillarBuffer() (pillarData bytes.Buffer) {
 		for k, v := range securePillar.Secure_Vars {
 			if strings.Contains(v, pgpHeader) == false {
 				fmt.Printf("key[%s] value[%s]\n", k, v)
-				signedText = signSecret(v)
+				signedText = encryptSecret(v)
+				securePillar.Secure_Vars[k] = signedText
+			}
+		}
+	} else if decryptAll == true && secretsFilePath != os.Stdin.Name() {
+		for k, v := range securePillar.Secure_Vars {
+			if strings.Contains(v, pgpHeader) == false {
+				fmt.Printf("key[%s] value[%s]\n", k, v)
+				signedText = encryptSecret(v)
 				securePillar.Secure_Vars[k] = signedText
 			}
 		}
 	} else {
-		signedText = signSecret(plainText)
+		signedText = encryptSecret(plainText)
 		securePillar.Secure_Vars[secretName] = signedText
 	}
 
