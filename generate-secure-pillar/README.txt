@@ -21,6 +21,7 @@ GLOBAL OPTIONS:
    --output_file value, -o value   path to a file to be written (defaults to STDOUT) (default: "/dev/stdout")
    --secret value, -s value        secret string value to be encrypted
    --gpg_key value, -k value       GPG key name, email, or ID to use for encryption
+   --encrypt_all, -a               encrypt all non-encrypted values in a file
    --help, -h                      show help
    --version, -v                   print the version
 
