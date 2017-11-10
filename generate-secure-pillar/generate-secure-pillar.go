@@ -140,7 +140,7 @@ func main() {
 			securePillar := readSlsFile(secretsFilePath)
 			for k, v := range securePillar.Secure_Vars {
 				if strings.Contains(v, pgpHeader) == true {
-					fmt.Printf("key[%s] value[%s]\n", k, decryptSecret(v))
+					fmt.Printf("%s: \"%s\"\n", k, decryptSecret(v))
 				}
 			}
 		} else {
@@ -260,11 +260,7 @@ func decryptSecret(cipherText string) (plainText string) {
 	} else if privring == nil {
 		log.Fatal(fmt.Sprintf("%s is empty!", secureKeyRing))
 	}
-	fmt.Printf("%#v\n", privring)
-	privateKey := getKeyByID(privring, gpgKeyName)
-	fmt.Printf("%#v\n", privateKey)
 
-	fmt.Println(cipherText)
 	decbuf := bytes.NewBuffer([]byte(cipherText))
 	block, err := armor.Decode(decbuf)
 	if block.Type != "PGP MESSAGE" {
@@ -277,7 +273,6 @@ func decryptSecret(cipherText string) (plainText string) {
 	}
 
 	bytes, err := ioutil.ReadAll(md.UnverifiedBody)
-	fmt.Printf("BYTES: %s\n", bytes)
 
 	return string(bytes)
 }
