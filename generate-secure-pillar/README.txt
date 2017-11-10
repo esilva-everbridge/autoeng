@@ -22,6 +22,8 @@ GLOBAL OPTIONS:
    --secret value, -s value        secret string value to be encrypted
    --gpg_key value, -k value       GPG key name, email, or ID to use for encryption
    --encrypt_all, -a               encrypt all non-encrypted values in a file
+   --recurse value, -r value       recurse over all .sls files in the given path (implies --encrypt_all)
+   --debug                         adds line number info to log output
    --help, -h                      show help
    --version, -v                   print the version
 

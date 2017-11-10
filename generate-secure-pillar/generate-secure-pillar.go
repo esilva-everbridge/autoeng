@@ -124,7 +124,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:        "recurse, r",
-			Usage:       "recurse over all .sls files in the given path",
+			Usage:       "recurse over all .sls files in the given path (implies --encrypt_all)",
 			Destination: &recurseDir,
 		},
 		cli.BoolFlag{
