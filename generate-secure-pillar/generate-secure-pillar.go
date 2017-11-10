@@ -68,13 +68,13 @@ func main() {
 		cli.StringFlag{
 			Name:        "pubring, pub",
 			Value:       defaultPubRing,
-			Usage:       "GNUPG public keyring",
+			Usage:       "PGP public keyring",
 			Destination: &publicKeyRing,
 		},
 		cli.StringFlag{
 			Name:        "secring, sec",
 			Value:       defaultSecRing,
-			Usage:       "GNUPG private keyring",
+			Usage:       "PGP private keyring",
 			Destination: &secureKeyRing,
 		},
 		// cli.StringFlag{
@@ -118,7 +118,7 @@ func main() {
 			Destination: &encryptAll,
 		},
 		cli.BoolFlag{
-			Name:        "decrypt_all, a",
+			Name:        "decrypt_all, d",
 			Usage:       "decrypt all encrypted values in a file",
 			Destination: &decryptAll,
 		},
@@ -136,14 +136,23 @@ func main() {
 		}
 		secretsFilePath, _ = filepath.Abs(secretsFilePath)
 
-		sls := pillarBuffer()
+		if decryptAll == true && secretsFilePath != os.Stdin.Name() {
+			securePillar := readSlsFile(secretsFilePath)
+			for k, v := range securePillar.Secure_Vars {
+				if strings.Contains(v, pgpHeader) == true {
+					fmt.Printf("key[%s] value[%s]\n", k, decryptSecret(v))
+				}
+			}
+		} else {
+			sls := pillarBuffer()
 
-		err := ioutil.WriteFile(outputFilePath, sls.Bytes(), 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if !stdOut {
-			fmt.Printf("Wrote out to file: '%s'\n", outputFilePath)
+			err := ioutil.WriteFile(outputFilePath, sls.Bytes(), 0644)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if !stdOut {
+				fmt.Printf("Wrote out to file: '%s'\n", outputFilePath)
+			}
 		}
 
 		// TODO: checkout pillar repo
@@ -212,6 +221,7 @@ func readSlsFile(slsPath string) SecurePillar {
 
 func encryptSecret(plainText string) (signedText string) {
 	pubringFile, err := os.Open(publicKeyRing)
+	defer pubringFile.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -239,31 +249,37 @@ func encryptSecret(plainText string) (signedText string) {
 }
 
 func decryptSecret(cipherText string) (plainText string) {
-	secringFile, err := os.Open(privateKeyRing)
+	privringFile, err := os.Open(secureKeyRing)
+	defer privringFile.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
-	secring, err := openpgp.ReadKeyRing(secringFile)
+	privring, err := openpgp.ReadKeyRing(privringFile)
 	if err != nil {
-		log.Fatal("cannot read secret keys: ", err)
+		log.Fatal("cannot read private keys: ", err)
+	} else if privring == nil {
+		log.Fatal(fmt.Sprintf("%s is empty!", secureKeyRing))
 	}
-	secretKey := getKeyByID(secring, gpgKeyName)
+	fmt.Printf("%#v\n", privring)
+	privateKey := getKeyByID(privring, gpgKeyName)
+	fmt.Printf("%#v\n", privateKey)
 
-	var tmpfile bytes.Buffer
+	fmt.Println(cipherText)
+	decbuf := bytes.NewBuffer([]byte(cipherText))
+	block, err := armor.Decode(decbuf)
+	if block.Type != "PGP MESSAGE" {
+		log.Fatal(err)
+	}
+
+	md, err := openpgp.ReadMessage(block.Body, privring, nil, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// hints := openpgp.FileHints{IsBinary: false, ModTime: time.Time{}}
-	// writer := bufio.NewWriter(&tmpfile)
-	// w, _ := armor.Encode(writer, "PGP MESSAGE", nil)
-	// plaintext, _ := openpgp.Encrypt(w, []*openpgp.Entity{publicKey}, nil, &hints, nil)
-	// fmt.Fprintf(plaintext, string(plainText))
-	// plaintext.Close()
-	// w.Close()
-	// writer.Flush()
+	bytes, err := ioutil.ReadAll(md.UnverifiedBody)
+	fmt.Printf("BYTES: %s\n", bytes)
 
-	return tmpfile.String()
+	return string(bytes)
 }
 
 func pillarBuffer() (pillarData bytes.Buffer) {
@@ -272,14 +288,6 @@ func pillarBuffer() (pillarData bytes.Buffer) {
 	plainText := secretsString
 
 	if encryptAll == true && secretsFilePath != os.Stdin.Name() {
-		for k, v := range securePillar.Secure_Vars {
-			if strings.Contains(v, pgpHeader) == false {
-				fmt.Printf("key[%s] value[%s]\n", k, v)
-				signedText = encryptSecret(v)
-				securePillar.Secure_Vars[k] = signedText
-			}
-		}
-	} else if decryptAll == true && secretsFilePath != os.Stdin.Name() {
 		for k, v := range securePillar.Secure_Vars {
 			if strings.Contains(v, pgpHeader) == false {
 				fmt.Printf("key[%s] value[%s]\n", k, v)
@@ -299,7 +307,6 @@ func pillarBuffer() (pillarData bytes.Buffer) {
 	var buffer bytes.Buffer
 	buffer.WriteString("#!yaml|gpg\n\n")
 	buffer.WriteString(string(yamlBytes))
-	// buffer.WriteTo(os.Stdout)
 
 	return buffer
 }
