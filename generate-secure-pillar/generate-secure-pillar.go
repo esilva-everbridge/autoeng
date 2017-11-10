@@ -30,6 +30,8 @@ var publicKeyRing string
 var secureKeyRing string
 var encryptAll bool
 var decryptAll bool
+var debug bool
+var recurseDir string
 var randSrc = rand.NewSource(time.Now().UnixNano())
 
 var usr, _ = user.Current()
@@ -46,8 +48,6 @@ type SecurePillar struct {
 }
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
 	app := cli.NewApp()
 	app.Version = "0.1"
 	app.Authors = []cli.Author{
@@ -122,15 +122,23 @@ func main() {
 			Usage:       "decrypt all encrypted values in a file",
 			Destination: &decryptAll,
 		},
+		cli.StringFlag{
+			Name:        "recurse, r",
+			Usage:       "recurse over all .sls files in the given path",
+			Destination: &recurseDir,
+		},
+		cli.BoolFlag{
+			Name:        "debug",
+			Usage:       "adds line number info to log output",
+			Destination: &debug,
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
-		stdOut := true
-		outputFilePath, _ = filepath.Abs(outputFilePath)
-
-		if outputFilePath != os.Stdout.Name() {
-			stdOut = true
+		if debug {
+			log.SetFlags(log.LstdFlags | log.Lshortfile)
 		}
+
 		if secretsFilePath == "-" {
 			secretsFilePath = os.Stdin.Name()
 		}
@@ -143,16 +151,26 @@ func main() {
 					fmt.Printf("%s: \"%s\"\n", k, decryptSecret(v))
 				}
 			}
-		} else {
-			sls := pillarBuffer()
-
-			err := ioutil.WriteFile(outputFilePath, sls.Bytes(), 0644)
+		} else if recurseDir != "" {
+			encryptAll = true
+			info, err := os.Stat(recurseDir)
 			if err != nil {
 				log.Fatal(err)
 			}
-			if !stdOut {
-				fmt.Printf("Wrote out to file: '%s'\n", outputFilePath)
+			if info.IsDir() {
+				slsFiles := findSlsFiles(recurseDir)
+				for _, file := range slsFiles {
+					pillar := readSlsFile(file)
+					if len(pillar.Secure_Vars) > 0 {
+						writeSlsFile(file, fmt.Sprintf("%s.new", file))
+					}
+				}
+			} else {
+				log.Fatal(fmt.Sprintf("%s is not a directory", info.Name()))
 			}
+
+		} else {
+			writeSlsFile(secretsFilePath, outputFilePath)
 		}
 
 		// TODO: checkout pillar repo
@@ -178,6 +196,28 @@ func main() {
 	app.Run(os.Args)
 }
 
+func writeSlsFile(inFilePath string, outFilePath string) {
+	inFilePath, _ = filepath.Abs(inFilePath)
+	outFilePath, _ = filepath.Abs(outFilePath)
+	sls := pillarBuffer(inFilePath)
+	if sls.Len() == 0 {
+		return
+	}
+
+	stdOut := false
+	if outFilePath == os.Stdout.Name() {
+		stdOut = true
+	}
+
+	err := ioutil.WriteFile(outFilePath, sls.Bytes(), 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !stdOut {
+		fmt.Printf("Wrote out to file: '%s'\n", outFilePath)
+	}
+}
+
 func getKeyByID(keyring openpgp.EntityList, id string) *openpgp.Entity {
 	for _, entity := range keyring {
 		for _, ident := range entity.Identities {
@@ -199,7 +239,7 @@ func getKeyByID(keyring openpgp.EntityList, id string) *openpgp.Entity {
 func readSlsFile(slsPath string) SecurePillar {
 	var securePillar SecurePillar
 
-	if secretsFilePath != os.Stdin.Name() {
+	if slsPath != os.Stdin.Name() {
 		filename, _ := filepath.Abs(slsPath)
 		if _, err := os.Stat(filename); !os.IsNotExist(err) {
 			yamlData, err := ioutil.ReadFile(filename)
@@ -209,7 +249,8 @@ func readSlsFile(slsPath string) SecurePillar {
 
 			err = yaml.Unmarshal(yamlData, &securePillar)
 			if err != nil {
-				log.Fatal(err)
+				log.Print(fmt.Sprintf("Skipping %s: %s\n", filename, err))
+				return securePillar
 			}
 		}
 	} else {
@@ -277,33 +318,52 @@ func decryptSecret(cipherText string) (plainText string) {
 	return string(bytes)
 }
 
-func pillarBuffer() (pillarData bytes.Buffer) {
-	securePillar := readSlsFile(secretsFilePath)
+func pillarBuffer(filePath string) (pillarData bytes.Buffer) {
+	var buffer bytes.Buffer
 	var signedText string
+	securePillar := readSlsFile(filePath)
 	plainText := secretsString
+	dataChanged := false
 
-	if encryptAll == true && secretsFilePath != os.Stdin.Name() {
+	if encryptAll == true && filePath != os.Stdin.Name() {
 		for k, v := range securePillar.Secure_Vars {
 			if strings.Contains(v, pgpHeader) == false {
 				fmt.Printf("key[%s] value[%s]\n", k, v)
 				signedText = encryptSecret(v)
 				securePillar.Secure_Vars[k] = signedText
+				dataChanged = true
 			}
 		}
 	} else {
 		signedText = encryptSecret(plainText)
 		securePillar.Secure_Vars[secretName] = signedText
+		dataChanged = true
+	}
+
+	if !dataChanged {
+		return buffer
 	}
 
 	yamlBytes, err := yaml.Marshal(securePillar)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var buffer bytes.Buffer
 	buffer.WriteString("#!yaml|gpg\n\n")
 	buffer.WriteString(string(yamlBytes))
 
 	return buffer
+}
+
+func findSlsFiles(searchDir string) []string {
+	fileList := []string{}
+	filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
+		if f.IsDir() == false && strings.Contains(f.Name(), ".sls") {
+			fileList = append(fileList, path)
+		}
+		return nil
+	})
+
+	return fileList
 }
 
 // func checkoutPillar() (path string, err error) {
