@@ -24,7 +24,7 @@ var githubOrg string
 var secretsFilePath string
 var secretsString string
 var outputFilePath string = os.Stdout.Name()
-var gpgKeyName string
+var pgpKeyName string
 var secretName string
 var publicKeyRing string
 var secureKeyRing string
@@ -108,9 +108,9 @@ func main() {
 			Destination: &secretsString,
 		},
 		cli.StringFlag{
-			Name:        "gpg_key, k",
-			Usage:       "GPG key name, email, or ID to use for encryption",
-			Destination: &gpgKeyName,
+			Name:        "pgp_key, k",
+			Usage:       "PGP key name, email, or ID to use for encryption",
+			Destination: &pgpKeyName,
 		},
 		cli.BoolFlag{
 			Name:        "encrypt_all, a",
@@ -270,7 +270,7 @@ func encryptSecret(plainText string) (signedText string) {
 	if err != nil {
 		log.Fatal("cannot read public keys: ", err)
 	}
-	publicKey := getKeyByID(pubring, gpgKeyName)
+	publicKey := getKeyByID(pubring, pgpKeyName)
 
 	var tmpfile bytes.Buffer
 	if err != nil {
