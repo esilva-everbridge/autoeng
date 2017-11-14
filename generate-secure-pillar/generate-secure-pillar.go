@@ -260,7 +260,7 @@ func readSlsFile(slsPath string) SecurePillar {
 	return securePillar
 }
 
-func encryptSecret(plainText string) (signedText string) {
+func encryptSecret(plainText string) (cipherText string) {
 	pubringFile, err := os.Open(publicKeyRing)
 	defer pubringFile.Close()
 	if err != nil {
@@ -320,7 +320,7 @@ func decryptSecret(cipherText string) (plainText string) {
 
 func pillarBuffer(filePath string) (pillarData bytes.Buffer) {
 	var buffer bytes.Buffer
-	var signedText string
+	var cipherText string
 	securePillar := readSlsFile(filePath)
 	plainText := secretsString
 	dataChanged := false
@@ -329,14 +329,14 @@ func pillarBuffer(filePath string) (pillarData bytes.Buffer) {
 		for k, v := range securePillar.Secure_Vars {
 			if strings.Contains(v, pgpHeader) == false {
 				fmt.Printf("key[%s] value[%s]\n", k, v)
-				signedText = encryptSecret(v)
-				securePillar.Secure_Vars[k] = signedText
+				cipherText = encryptSecret(v)
+				securePillar.Secure_Vars[k] = cipherText
 				dataChanged = true
 			}
 		}
 	} else {
-		signedText = encryptSecret(plainText)
-		securePillar.Secure_Vars[secretName] = signedText
+		cipherText = encryptSecret(plainText)
+		securePillar.Secure_Vars[secretName] = cipherText
 		dataChanged = true
 	}
 
