@@ -37,7 +37,7 @@ EXAMPLES:
     # encrypt all plain text values in a file
     $ ./generate-secure-pillar -k "Salt Master" -a -f us1.sls -o us1.sls
     # recurse through all sls files, creating new encrypted files with a .new extension
-    $ ./generate-secure-pillar -k "Salt Master" -r ~/Desktop/src/atlas-salt-pillar/
+    $ ./generate-secure-pillar -k "Salt Master" -r ~/Desktop/src/atlas-salt-pillar/dev1/secure
 
 COPYRIGHT:
    (c) 2017 Everbridge, Inc.
