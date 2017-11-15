@@ -59,12 +59,6 @@ func main() {
 	app.Copyright = "(c) 2017 Everbridge, Inc."
 	app.Usage = "add or update secure salt pillar content"
 	app.Flags = []cli.Flag{
-		// cli.StringFlag{
-		// 	Name:        "token, t",
-		// 	Usage:       "github API token",
-		// 	Destination: &githubToken,
-		// 	EnvVar:      "GITHUB_TOKEN",
-		// },
 		cli.StringFlag{
 			Name:        "pubring, pub",
 			Value:       defaultPubRing,
@@ -77,12 +71,6 @@ func main() {
 			Usage:       "PGP private keyring",
 			Destination: &secureKeyRing,
 		},
-		// cli.StringFlag{
-		// 	Name:        "github_org, org",
-		// 	Value:       defaultOrg,
-		// 	Usage:       "github organization",
-		// 	Destination: &githubOrg,
-		// },
 		cli.StringFlag{
 			Name:        "secure_name, n",
 			Usage:       "secure variable name",
@@ -134,6 +122,7 @@ func main() {
 		},
 	}
 
+	// TODO: this unholy mess needs to be re-done
 	app.Action = func(c *cli.Context) error {
 		if debug {
 			log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -173,23 +162,6 @@ func main() {
 			writeSlsFile(secretsFilePath, outputFilePath)
 		}
 
-		// TODO: checkout pillar repo
-		// checkoutPath, err := checkoutPillar("githubRepo")
-		// if err != nil {
-		//  log.Fatal(err)
-		// }
-
-		// // TODO: check for existing pillar file
-		// exists := pillarFileExists(checkoutPath)
-
-		// // TODO: check in or update new file
-		// err = updatePillar("", exists)
-		// if err != nil {
-		//  fmt.Println("Unable to update pillar: ", err.Error())
-		//  os.Exit(1)
-		// }
-
-		// defer os.Remove(checkoutPath)
 		return nil
 	}
 
@@ -365,34 +337,3 @@ func findSlsFiles(searchDir string) []string {
 
 	return fileList
 }
-
-// func checkoutPillar() (path string, err error) {
-// 	ctx := context.Background()
-
-// 	ts := oauth2.StaticTokenSource(
-// 		&oauth2.Token{AccessToken: githubToken},
-// 	)
-// 	tc := oauth2.NewClient(ctx, ts)
-
-// 	client := github.NewClient(tc)
-
-// 	repo, resp, err := client.Repositories.Get(ctx, githubOrg, githubRepo)
-// 	fmt.Println("resp: ", resp)
-// 	if err != nil {
-// 		log.Fatal(fmt.Sprintf("Unable to get repo: %s", err.Error()))
-// 		return "", err
-// 	}
-
-// 	// XXX - caller needs to clean up this dir
-// 	tmpDir, _ := ioutil.TempDir("", "")
-
-// 	cmd := exec.Command("git", "clone", repo.GetSSHURL(), fmt.Sprintf("%s/%s", tmpDir, githubRepo))
-// 	err = cmd.Run()
-// 	if err != nil {
-// 		log.Fatal(fmt.Sprintf("Unable to clone pillar: %s", err.Error()))
-// 		defer os.Remove(tmpDir)
-// 		return "", err
-// 	}
-
-// 	return fmt.Sprintf("%s/%s", tmpDir, githubRepo), err
-// }
