@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/keybase/go-crypto/openpgp"
+	"github.com/keybase/go-crypto/openpgp/armor"
 	"github.com/urfave/cli"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/armor"
 	yaml "gopkg.in/yaml.v2"
 )
 
