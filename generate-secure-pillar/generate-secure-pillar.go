@@ -29,6 +29,8 @@ var defaultSecRing = filepath.Join(usr.HomeDir, ".gnupg/secring.gpg")
 const pgpHeader = "-----BEGIN PGP MESSAGE-----"
 
 // SecurePillar secure pillar vars
+// yes, this uses an underscore, it's a convention
+// we use in secure pillar files
 type SecurePillar struct {
 	Secure_Vars map[string]string
 }
