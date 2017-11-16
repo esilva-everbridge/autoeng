@@ -29,10 +29,8 @@ var defaultSecRing = filepath.Join(usr.HomeDir, ".gnupg/secring.gpg")
 const pgpHeader = "-----BEGIN PGP MESSAGE-----"
 
 // SecurePillar secure pillar vars
-// yes, this uses an underscore, it's a convention
-// we use in secure pillar files
 type SecurePillar struct {
-	Secure_Vars map[string]string
+	SecureVars map[string]string `yaml:"secure_vars"`
 }
 
 func main() {
@@ -105,9 +103,9 @@ $ ./generate-secure-pillar -k "Salt Master" encrypt recurse /path/to/pillar/secu
 			Usage:   "create a new sls file",
 			Action: func(c *cli.Context) error {
 				var securePillar SecurePillar
-				securePillar.Secure_Vars = make(map[string]string)
+				securePillar.SecureVars = make(map[string]string)
 				cipherText := encryptSecret(secretsString)
-				securePillar.Secure_Vars[secretName] = cipherText
+				securePillar.SecureVars[secretName] = cipherText
 				buffer := formatBuffer(securePillar)
 				writeSlsFile(buffer, outputFilePath)
 				return nil
@@ -210,7 +208,7 @@ $ ./generate-secure-pillar -k "Salt Master" encrypt recurse /path/to/pillar/secu
 							slsFiles := findSlsFiles(recurseDir)
 							for _, file := range slsFiles {
 								pillar := readSlsFile(file)
-								if len(pillar.Secure_Vars) > 0 {
+								if len(pillar.SecureVars) > 0 {
 									buffer := pillarBuffer(file)
 									writeSlsFile(buffer, fmt.Sprintf("%s.new", file))
 								}
