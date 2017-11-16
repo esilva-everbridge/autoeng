@@ -300,7 +300,6 @@ func pillarBuffer(filePath string) (pillarData bytes.Buffer) {
 	if encryptAll == true && filePath != os.Stdin.Name() {
 		for k, v := range securePillar.Secure_Vars {
 			if strings.Contains(v, pgpHeader) == false {
-				fmt.Printf("key[%s] value[%s]\n", k, v)
 				cipherText = encryptSecret(v)
 				securePillar.Secure_Vars[k] = cipherText
 				dataChanged = true
