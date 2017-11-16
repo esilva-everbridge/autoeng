@@ -15,8 +15,8 @@ func TestFindSlsFiles(t *testing.T) {
 
 func TestReadSlsFile(t *testing.T) {
 	yaml := readSlsFile("./testdata/new.sls")
-	if len(yaml.Secure_Vars) <= 0 {
-		t.Errorf("YAML content lenth is incorrect, got: %d, want: %d.", len(yaml.Secure_Vars), 1)
+	if len(yaml.Secure_Vars) != 3 {
+		t.Errorf("YAML content length is incorrect, got: %d, want: %d.", len(yaml.Secure_Vars), 3)
 	}
 }
 
