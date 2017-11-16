@@ -30,13 +30,13 @@ COPYRIGHT:
 
 EXAMPLES:
 # create a new sls file
-$ ./generate-secure-pillar -k "Salt Master" create --secret_name secret_name -secret_value secret_value --outfile new.sls
+$ ./generate-secure-pillar -k "Salt Master" create --secret_name secret_name --secret_value secret_value --outfile new.sls
 
 # add to the new file
-$ ./generate-secure-pillar -k "Salt Master" update -n new_secret_name -s new_secret_value --file new.sls
+$ ./generate-secure-pillar -k "Salt Master" update --secret_name new_secret_name --secret_value new_secret_value --file new.sls
 
 # update an existing value
-$ ./generate-secure-pillar -k "Salt Master" -n secret_name -s secret_value3 --file new.sls
+$ ./generate-secure-pillar -k "Salt Master" update --secret_name secret_name --secret_value secret_value3 --file new.sls
 
 # encrypt all plain text values in a file
 $ ./generate-secure-pillar -k "Salt Master" encrypt all --file us1.sls --outfile us1.sls
