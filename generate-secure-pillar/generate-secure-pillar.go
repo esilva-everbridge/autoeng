@@ -44,7 +44,7 @@ func main() {
 	secretsFilePath, _ = filepath.Abs(secretsFilePath)
 
 	app := cli.NewApp()
-	app.Version = "0.1"
+	app.Version = "1.0"
 	app.Authors = []cli.Author{
 		cli.Author{
 			Name:  "Ed Silva",
