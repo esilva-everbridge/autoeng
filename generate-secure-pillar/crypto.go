@@ -15,7 +15,6 @@ import (
 
 func encryptSecret(plainText string) (cipherText string) {
 	pubringFile, err := os.Open(publicKeyRing)
-	defer pubringFile.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -26,25 +25,30 @@ func encryptSecret(plainText string) (cipherText string) {
 	publicKey := getKeyByID(pubring, pgpKeyName)
 
 	var tmpfile bytes.Buffer
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	hints := openpgp.FileHints{IsBinary: false, ModTime: time.Time{}}
 	writer := bufio.NewWriter(&tmpfile)
 	w, _ := armor.Encode(writer, "PGP MESSAGE", nil)
 	plaintext, _ := openpgp.Encrypt(w, []*openpgp.Entity{publicKey}, nil, &hints, nil)
-	fmt.Fprintf(plaintext, string(plainText))
-	plaintext.Close()
-	w.Close()
-	writer.Flush()
+	fmt.Fprintf(plaintext, plainText)
+	if err := plaintext.Close(); err != nil {
+		log.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		log.Fatal(err)
+	}
+	if err := writer.Flush(); err != nil {
+		log.Fatal(err)
+	}
+	if err := pubringFile.Close(); err != nil {
+		log.Fatal(err)
+	}
 
 	return tmpfile.String()
 }
 
 func decryptSecret(cipherText string) (plainText string) {
 	privringFile, err := os.Open(secureKeyRing)
-	defer privringFile.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,6 +71,9 @@ func decryptSecret(cipherText string) (plainText string) {
 	}
 
 	bytes, err := ioutil.ReadAll(md.UnverifiedBody)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return string(bytes)
 }

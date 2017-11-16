@@ -27,7 +27,7 @@ func TestEncryptSecret(t *testing.T) {
 		t.Errorf("YAML content lenth is incorrect, got: %d, want: %d.", len(yaml.Secure_Vars), 1)
 	}
 	for _, v := range yaml.Secure_Vars {
-		if strings.Contains(v, pgpHeader) == true {
+		if strings.Contains(v, pgpHeader) {
 			t.Errorf("YAML content is already encrypted.")
 		} else {
 			cipherText := encryptSecret(v)

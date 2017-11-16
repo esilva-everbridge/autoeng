@@ -3,21 +3,17 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"os/user"
 	"path/filepath"
-	"time"
 
 	"github.com/urfave/cli"
 )
 
-var githubToken string
-var githubOrg string
 var secretsFilePath string
 var secretsString string
 var inputFilePath string
-var outputFilePath string = os.Stdout.Name()
+var outputFilePath = os.Stdout.Name()
 var pgpKeyName string
 var secretName string
 var publicKeyRing string
@@ -25,7 +21,6 @@ var secureKeyRing string
 var all bool
 var debug bool
 var recurseDir string
-var randSrc = rand.NewSource(time.Now().UnixNano())
 
 var usr, _ = user.Current()
 var defaultPubRing = filepath.Join(usr.HomeDir, ".gnupg/pubring.gpg")
@@ -253,5 +248,8 @@ $ ./generate-secure-pillar -k "Salt Master" encrypt recurse /path/to/pillar/secu
 		},
 	}
 
-	app.Run(os.Args)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
