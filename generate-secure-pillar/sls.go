@@ -72,7 +72,6 @@ func pillarBuffer(filePath string, all bool) bytes.Buffer {
 	var buffer bytes.Buffer
 	var cipherText string
 	securePillar := readSlsFile(filePath)
-	plainText := secretsString
 	dataChanged := false
 
 	if all && filePath != os.Stdin.Name() {
@@ -84,7 +83,7 @@ func pillarBuffer(filePath string, all bool) bytes.Buffer {
 			}
 		}
 	} else {
-		cipherText = encryptSecret(plainText)
+		cipherText = encryptSecret(secretsString)
 		securePillar.SecureVars[secretName] = cipherText
 		dataChanged = true
 	}
