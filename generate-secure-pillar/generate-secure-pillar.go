@@ -10,7 +10,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-var secretsFilePath string
 var secretsString string
 var inputFilePath string
 var outputFilePath = os.Stdout.Name()
@@ -36,12 +35,6 @@ func main() {
 	if debug {
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
 	}
-
-	if secretsFilePath == "-" {
-		secretsFilePath = os.Stdin.Name()
-	}
-	secretsFilePath, _ = filepath.Abs(secretsFilePath)
-
 	app := cli.NewApp()
 	app.Version = "1.0"
 	app.Authors = []cli.Author{
