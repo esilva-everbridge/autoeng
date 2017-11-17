@@ -18,7 +18,6 @@ var pgpKeyName string
 var secretName string
 var publicKeyRing string
 var secureKeyRing string
-var all bool
 var debug bool
 var recurseDir string
 
@@ -135,7 +134,7 @@ $ ./generate-secure-pillar -k "Salt Master" encrypt recurse /path/to/pillar/secu
 			Usage:   "update the value of the given key in the given file",
 			Action: func(c *cli.Context) error {
 				outputFilePath = inputFilePath
-				buffer := pillarBuffer(inputFilePath)
+				buffer := pillarBuffer(inputFilePath, false)
 				writeSlsFile(buffer, outputFilePath)
 				return nil
 			},
@@ -183,8 +182,7 @@ $ ./generate-secure-pillar -k "Salt Master" encrypt recurse /path/to/pillar/secu
 						},
 					},
 					Action: func(c *cli.Context) error {
-						all = true
-						buffer := pillarBuffer(inputFilePath)
+						buffer := pillarBuffer(inputFilePath, true)
 						writeSlsFile(buffer, outputFilePath)
 						return nil
 					},
@@ -199,7 +197,6 @@ $ ./generate-secure-pillar -k "Salt Master" encrypt recurse /path/to/pillar/secu
 						},
 					},
 					Action: func(c *cli.Context) error {
-						all = true
 						info, err := os.Stat(recurseDir)
 						if err != nil {
 							log.Fatal(err)
@@ -209,7 +206,7 @@ $ ./generate-secure-pillar -k "Salt Master" encrypt recurse /path/to/pillar/secu
 							for _, file := range slsFiles {
 								pillar := readSlsFile(file)
 								if len(pillar.SecureVars) > 0 {
-									buffer := pillarBuffer(file)
+									buffer := pillarBuffer(file, true)
 									writeSlsFile(buffer, fmt.Sprintf("%s.new", file))
 								}
 							}

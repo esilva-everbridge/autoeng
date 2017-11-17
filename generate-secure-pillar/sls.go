@@ -30,6 +30,7 @@ func writeSlsFile(buffer bytes.Buffer, outFilePath string) {
 }
 
 func readSlsFile(slsPath string) SecurePillar {
+	slsPath, _ = filepath.Abs(slsPath)
 	var securePillar SecurePillar
 	securePillar.SecureVars = make(map[string]string)
 
@@ -51,6 +52,7 @@ func readSlsFile(slsPath string) SecurePillar {
 }
 
 func findSlsFiles(searchDir string) []string {
+	searchDir, _ = filepath.Abs(searchDir)
 	fileList := []string{}
 	err := filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
 		if !f.IsDir() && strings.Contains(f.Name(), ".sls") {
@@ -65,7 +67,8 @@ func findSlsFiles(searchDir string) []string {
 	return fileList
 }
 
-func pillarBuffer(filePath string) bytes.Buffer {
+func pillarBuffer(filePath string, all bool) bytes.Buffer {
+	filePath, _ = filepath.Abs(filePath)
 	var buffer bytes.Buffer
 	var cipherText string
 	securePillar := readSlsFile(filePath)
@@ -74,7 +77,7 @@ func pillarBuffer(filePath string) bytes.Buffer {
 
 	if all && filePath != os.Stdin.Name() {
 		for k, v := range securePillar.SecureVars {
-			if strings.Contains(v, pgpHeader) {
+			if !strings.Contains(v, pgpHeader) {
 				cipherText = encryptSecret(v)
 				securePillar.SecureVars[k] = cipherText
 				dataChanged = true
@@ -94,6 +97,7 @@ func pillarBuffer(filePath string) bytes.Buffer {
 }
 
 func plainTextPillarBuffer(inFile string) bytes.Buffer {
+	inFile, _ = filepath.Abs(inFile)
 	securePillar := readSlsFile(inFile)
 	for k, v := range securePillar.SecureVars {
 		if strings.Contains(v, pgpHeader) {
