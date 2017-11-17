@@ -133,7 +133,9 @@ $ ./generate-secure-pillar -k "Salt Master" encrypt recurse /path/to/pillar/secu
 			Aliases: []string{"e"},
 			Usage:   "update the value of the given key in the given file",
 			Action: func(c *cli.Context) error {
-				outputFilePath = inputFilePath
+				if inputFilePath != os.Stdin.Name() {
+					outputFilePath = inputFilePath
+				}
 				buffer := pillarBuffer(inputFilePath, false)
 				writeSlsFile(buffer, outputFilePath)
 				return nil
@@ -182,6 +184,9 @@ $ ./generate-secure-pillar -k "Salt Master" encrypt recurse /path/to/pillar/secu
 						},
 					},
 					Action: func(c *cli.Context) error {
+						if inputFilePath != os.Stdin.Name() && outputFilePath == "" {
+							outputFilePath = inputFilePath
+						}
 						buffer := pillarBuffer(inputFilePath, true)
 						writeSlsFile(buffer, outputFilePath)
 						return nil

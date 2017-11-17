@@ -44,7 +44,6 @@ func readSlsFile(slsPath string) SecurePillar {
 		err = yaml.Unmarshal(yamlData, &securePillar)
 		if err != nil {
 			log.Print(fmt.Sprintf("Skipping %s: %s\n", filename, err))
-			return securePillar
 		}
 	}
 
@@ -74,7 +73,7 @@ func pillarBuffer(filePath string, all bool) bytes.Buffer {
 	securePillar := readSlsFile(filePath)
 	dataChanged := false
 
-	if all && filePath != os.Stdin.Name() {
+	if all {
 		for k, v := range securePillar.SecureVars {
 			if !strings.Contains(v, pgpHeader) {
 				cipherText = encryptSecret(v)
