@@ -14,6 +14,8 @@ import (
 )
 
 func encryptSecret(plainText string) (cipherText string) {
+	var memBuffer bytes.Buffer
+
 	pubringFile, err := os.Open(publicKeyRing)
 	if err != nil {
 		log.Fatal(err)
@@ -24,14 +26,12 @@ func encryptSecret(plainText string) (cipherText string) {
 	}
 	publicKey := getKeyByID(pubring, pgpKeyName)
 
-	var tmpfile bytes.Buffer
-
 	hints := openpgp.FileHints{IsBinary: false, ModTime: time.Time{}}
-	writer := bufio.NewWriter(&tmpfile)
+	writer := bufio.NewWriter(&memBuffer)
 	w, _ := armor.Encode(writer, "PGP MESSAGE", nil)
-	plaintext, _ := openpgp.Encrypt(w, []*openpgp.Entity{publicKey}, nil, &hints, nil)
-	fmt.Fprintf(plaintext, plainText)
-	if err := plaintext.Close(); err != nil {
+	plainFile, _ := openpgp.Encrypt(w, []*openpgp.Entity{publicKey}, nil, &hints, nil)
+	fmt.Fprintf(plainFile, plainText)
+	if err := plainFile.Close(); err != nil {
 		log.Fatal(err)
 	}
 	if err := w.Close(); err != nil {
@@ -44,7 +44,7 @@ func encryptSecret(plainText string) (cipherText string) {
 		log.Fatal(err)
 	}
 
-	return tmpfile.String()
+	return memBuffer.String()
 }
 
 func decryptSecret(cipherText string) (plainText string) {
